@@ -4,16 +4,34 @@
 	<title></title>
 	<script src="./hcrouter.js"></script>
 	<script type="text/javascript">
+		var user = {
+			before:function(){
+				console.log('user before');
+			},
+			on:function(){
+				console.log('user on');
+			},
+			after:function(){
+				console.log('user after');
+			}
+		};
+		var doc = {
+			before:function(){
+				console.log('doc before');
+			},
+			on:function(){
+				console.log('doc on');
+			},
+			after:function(){
+				console.log('doc after');
+			}
+		};
 		var option = {
 			'/home':function(){
 				console.log('home')
 			},
-			'/user':function(){
-				console.log('user')
-			},
-			'/doc':function(){
-				console.log('doc')
-			}
+			'/user':user,
+			'/doc':doc
 		}
 
 		var router = new Router(option);
