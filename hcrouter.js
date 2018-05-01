@@ -115,7 +115,7 @@ Router.prototype.insert = function(path,method,fn,parentRoute){
 }
 
 //绑定 hashchange 事件
-Router.prototype.init = function(){
+Router.prototype.init = function(r){
 	var that = this;
 	that.hanlder = function(onChangeEvent){
 		var newURL = onChangeEvent && onChangeEvent.newURL || window.location.hash;
@@ -123,6 +123,11 @@ Router.prototype.init = function(){
 		that.dispatch(path);
 	}
 	listener.init(that.hanlder);
+	if(document.location.hash === '' && r){
+		document.location.hash = r;
+	}else if(document.location.hash.length > 0){
+		that.hanlder();
+	}
 }
 
 //根据 hash 执行对应的回调事件
