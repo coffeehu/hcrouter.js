@@ -5,28 +5,7 @@
 	<script src="./hcrouter.js"></script>
 	<script type="text/javascript">
 		
-		var home = {
-			'/room':{
-				before:function(){
-				console.log('before room')
-				},
-				on:function(){
-					console.log('on room')
-				},
-				after:function(){
-					console.log('after room')
-				}
-			},
-			before:function(){
-				console.log('before home')
-			},
-			on:function(){
-				console.log('on home')
-			},
-			after:function(){
-				console.log('after home')
-			}
-		}
+
 
 		var user = {
 			before:function(){
@@ -64,10 +43,34 @@
 		};
 
 		var option = {
-			'/home':home,
+			'/home':{
+				'/room':{
+					before:function(){
+					console.log('before room')
+					},
+					on:function(){
+						console.log('on room')
+					},
+					after:function(){
+						console.log('after room')
+					}
+				},
+				before:function(){
+					console.log('before home')
+				},
+				on:function(params){
+					console.log('on home',params)
+				},
+				after:function(){
+					console.log('after home')
+				}
+			},
 			'/user':user,
 			'/user/detail':detail,
-			'/doc':doc
+			'/doc':doc,
+			'/doc/:id':function(id){
+				console.log('doc-id',id);
+			}
 		}
 
 		var router = new Router(option);
@@ -83,8 +86,20 @@
 		<li><a href="#/user">/user</a></li>
 		<li><a href="#/user/detail">/user/detail</a></li>
 		<li><a href="#/doc">/doc</a></li>
+		<li><a href="#/doc/123">/doc/123</a></li>
+		<li id="test">test</li>
 	</ul>
-
+<script type="text/javascript">
+	var test = document.getElementById('test');
+	test.onclick = function(){
+		var o = {
+			name:'hucong',
+			age:11,
+			id:'sdfwe2r32f'
+		}
+		router.replace('/home',o);
+	}
+</script>
 </body>
 </html>
 

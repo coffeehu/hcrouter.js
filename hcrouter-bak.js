@@ -14,22 +14,11 @@ var listener = {
 	}
 }
 
-var unNestedRoutes = [];
-
 var Router = exports.Router = function(routes){
 	this.routes = {}; //路由表
 	this.methods  = ['on', 'after', 'before']; //生命周期
-	this.config();
 	this.mount(routes);
 	console.log(this.routes)
-}
-
-Router.prototype.config = function(){
-	this._methods = {};
-	for(var i=0,l=this.methods.length;i<l;i++){
-		var m = this.methods[i];
-		this._methods[m] = true;
-	}
 }
 
 /*
@@ -44,10 +33,13 @@ Router.prototype.mount = function(routes, parentPath){
 		parentPath = parentPath || [];
 
 	function insertOrMount(path,route,parentPath){
-		//如果是这种形式："/home/detail"，那么 /home/detail 与 /home 是独立的
-		if(path.split('/').length>2){
-			unNestedRoutes[path]=true;
-		}
+
+		/*//如果是这种形式："/home/detail"，直接插入 this.routes
+		var unNested = path.split('/').length>2;
+		if(unNested){
+			that.routes[path] = route;
+			return;
+		}*/
 
 		/*
 			参数 path 可能是路径如"/home",
@@ -119,32 +111,37 @@ Router.prototype.init = function(){
 	var that = this;
 	that.hanlder = function(onChangeEvent){
 		var newURL = onChangeEvent && onChangeEvent.newURL || window.location.hash;
-    	var path = newURL.replace(/.*#/, ''); // 如将 "http://localhost/index#/home" => "home"
+    	var path = newURL.replace(/.*#\//, ''); // 如将 "http://localhost/index#/home" => "home"
 		that.dispatch(path);
 	}
 	listener.init(that.hanlder);
 }
 
 //根据 hash 执行对应的回调事件
-//path 为 "/home" 或 "/home/detail"
+//path 为 "home" 或 "home/detail"
 var toOther=0,toNested=1,toParent=2;
 Router.prototype.dispatch = function(path){
-	var runList = this.createRunList(path,this.routes);
+	var pathString = '/'+path;
 
-	//如果是这种形式："/home/detail"，那么 /home/detail 与 /home 是独立的
-	if( unNestedRoutes[path] || unNestedRoutes[this.lastPath] ){
+	/*// 是 "/home/room" 这种形式的路径
+	// 若能在 this.routes 中直接找到，则直接执行
+	if( pathString.split('/').length>2 && this.routes[pathString]){
+		var runList = [ this.routes[pathString].before, this.routes[pathString].on ];
 		this.invoke(this.last);
+		this.last = [ this.routes[pathString].after ];
 		this.invoke(runList);
-		this.last = [ runList.after ];
-		this.lastPath = path;
 		return;
-	}
+	}*/
+
+	// 转成数组，如 ["home"]、["home","detail"]
+	path = path.split('/');
+	var runList = this.createRunList(path.slice(0),this.routes);
 
 	function typeOfRoute(path,lastPath,parentPath){
 		if( lastPath && lastPath === parentPath){
 			return toNested;
 		}
-		else if( lastPath && lastPath.match( new RegExp(path) ) ){
+		else if( lastPath && lastPath.match( new RegExp(pathString) ) ){
 			return toParent;
 		}
 		else{
@@ -165,82 +162,42 @@ Router.prototype.dispatch = function(path){
 		if( this.last && this.last.length>0) this.invoke( [ this.last.shift() ] );
 	}else if( type === toOther ){
 		this.invoke(this.last); //调用上次路由的after	
-		this.invoke(runList);
 		this.last = [ runList.after ];
+		this.invoke(runList);
 	}
-	this.lastPath = path;
-
+	//this.invoke(runList);
+	this.lastPath = '/'+path.join('/');
 }
 
 //创建执行队列,如：[before,on]
 // path 为数组，如 ["home"] 、['home','detail']
-Router.prototype.createRunList = function(path,routes,parentReg){
+Router.prototype.createRunList = function(path,routes,parentPath){
+	var runList = [],
+		pathPart,route;
 
-	var _arr = path.split('?');
-	var queryBody = _arr[1];
-	var query={};
-	if( queryBody ){
-		path = _arr[0];
+	pathPart = path.shift();
 
-		var arr = queryBody.split('&');
-		for(var i=0,l=arr.length;i<l;i++){
-			var key = arr[i].split('=')[0],
-				value = arr[i].split('=')[1];
-			query[key] = value;
-		}
-	}
-
-	
-	var runList=[],parentReg = parentReg||'';
-	for(var r in routes){
-		if(routes.hasOwnProperty(r) && !this._methods[r]){
-			var regexp = parentReg+'/'+r;
-			var match = path.match( new RegExp('^'+regexp) );
-			//未匹配
-			if(!match){
-				continue;
-			}
-			//匹配到路径
-			if(match[0] && match[0] === path ){
-				runList = [ routes[r].before, routes[r].on ].filter(Boolean);
-				runList.after = routes[r].after;
-				runList.capture = match.slice(1);
-				runList.capture.push(query) ;
-				runList.parentPath = parentReg;
-				return runList;
-			}
-			//匹配到其父路径，递归
-			runList = this.createRunList(path,routes[r],regexp);
+	if(typeof routes[pathPart] === 'object'){
+		if(path.length > 0){ //说明是嵌套路由
+			parentPath = parentPath || ''; //记录其父路径
+			runList = this.createRunList(path, routes[pathPart],parentPath+'/'+pathPart);
 			return runList;
 		}
+
+		route = routes[pathPart];
+		runList = [ route.before, route.on ].filter(Boolean);
+		runList.after = route.after;
+		runList.parentPath = parentPath;
 	}
+
 	return runList;
 }
 
 Router.prototype.invoke = function(array){
 	if(!array && !Array.isArray(array) ) return;
 	for(var i=0,l=array.length;i<l;i++){
-		if(typeof array[i] === "function"){
-			array[i].apply(this,array.capture);
-		}
+		if(typeof array[i] === "function") array[i]();
 	}
-}
-
-Router.prototype.goto = function(path,params){
-	var queryString = this.toUrlString(params)
-	window.location =  '#' + path+queryString;
-}
-Router.prototype.replace = function(path,params){
-	var queryString = this.toUrlString(params)
-	window.location.replace('#'+path+queryString);
-}
-Router.prototype.toUrlString = function(params){
-	var string = '?';
-	for(var key in params){
-		string += key+'='+params[key]+'&';
-	}
-	string = string.substr(0, string.length-1);
-	return string;
 }
 
 }(window))
