@@ -132,7 +132,7 @@ Router.prototype.init = function(r){
 
 //根据 hash 执行对应的回调事件
 //path 为 "/home" 或 "/home/detail"
-var toOther=0,toNested=1,toParent=2;
+var toOther=0,toNested=1,toParent=2,toReload=3;
 Router.prototype.dispatch = function(path){
 	var runList = this.createRunList(path,this.routes);
 
@@ -146,7 +146,10 @@ Router.prototype.dispatch = function(path){
 	}
 
 	function typeOfRoute(path,lastPath,parentPath){
-		if( lastPath && lastPath === parentPath){
+		if( lastPath === undefined && parentPath ){ //嵌套路由且执行了刷新操作
+			return toReload;
+		}
+		else if( lastPath && lastPath === parentPath){
 			return toNested;
 		}
 		else if( lastPath && lastPath.match( new RegExp(path) ) ){
@@ -170,6 +173,11 @@ Router.prototype.dispatch = function(path){
 		if( this.last && this.last.length>0) this.invoke( [ this.last.shift() ] );
 	}else if( type === toOther ){
 		this.invoke(this.last); //调用上次路由的after	
+		this.invoke(runList);
+		this.last = [ runList.after ];
+	}else if( type === toReload ){
+		this.invoke(this.last); //调用上次路由的after	
+		this.dispatch(runList.parentPath);
 		this.invoke(runList);
 		this.last = [ runList.after ];
 	}
